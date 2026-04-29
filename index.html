@@ -884,9 +884,36 @@ function pollCloud(){
 function saveToCloud(){if(!FB.apiKey)return;setSyncStatus('syncing');writeToCloud();}
 function startPolling(){if(_syncTimer)clearInterval(_syncTimer);_syncTimer=setInterval(pollCloud,5000);pollCloud();}
 
+function forceRestoreFromCloud(){
+  // Pull data from Firestore regardless of deviceId/timestamp — used on init if local data is empty
+  fetch(fsURL(),{method:'GET'})
+    .then(function(r){if(r.status===404)return null;if(!r.ok)return null;return r.json();})
+    .then(function(doc){
+      if(!doc)return;
+      var data=fromFS(doc);if(!data||!data.state)return;
+      try{
+        var rem=JSON.parse(data.state);
+        if(rem&&rem.consortia&&rem.consortia.length){
+          STATE=rem;localStorage.setItem('ciq_v6',JSON.stringify(STATE));
+          if(chartInst){chartInst.destroy();chartInst=null;}
+          renderTabs();buildMainHTML();updateAll();
+          _lastCloudTs=data.updatedAt||Date.now();
+          setSyncStatus('ok','Dados restaurados do servidor');
+          setTimeout(function(){setSyncStatus('ok');},4000);
+        }
+      }catch(ex){}
+    })
+    .catch(function(){});
+}
+
 function initFirebase(){
   if(!FB.apiKey){setSyncStatus('off');return;}
   setSyncStatus('syncing','Conectando...');
+  // First: try to restore from cloud if local data is empty
+  var localEmpty=!STATE.consortia||!STATE.consortia.length||
+    STATE.consortia.every(function(c){return !c.assemblies||!c.assemblies.length;});
+  if(localEmpty){forceRestoreFromCloud();}
+  // Then: write current state and start polling
   writeToCloud(function(ok){if(ok)startPolling();});
 }
 
