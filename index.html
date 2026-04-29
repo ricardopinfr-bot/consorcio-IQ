@@ -822,7 +822,7 @@ function toggleTheme(){var d=document.documentElement;if(d.hasAttribute('data-da
 // FIREBASE SYNC + PWA INSTALL
 // ============================================================
 var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0;
-var SYNC_KEY=localStorage.getItem('ciq_sync_key')||'';
+var SYNC_KEY=localStorage.getItem('ciq_sync_key')||'ciq_consorcioiq1';
 var DEVICE_ID=(function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
 
 function setSyncStatus(s,msg){
@@ -831,10 +831,20 @@ function setSyncStatus(s,msg){
   if(txt){txt.textContent=msg||(s==='ok'?'Sincronizado':s==='syncing'?'Sincronizando...':s==='err'?'Erro sync':'Offline');}
 }
 
+var DEFAULT_FIREBASE_CFG={
+  "apiKey":"AIzaSyD20-9UIKKVtimkTxJrK0-XIMA6AMYoxo8",
+  "authDomain":"consorcio-IQ.firebaseapp.com",
+  "projectId":"consorcio-IQ",
+  "storageBucket":"consorcio-IQ.firebasestorage.app",
+  "messagingSenderId":"798930577530",
+  "appId":"1:798930577530:web:331e03d4e2d35afdaa33c3"
+};
+
 function initFirebase(){
   var cfg=null;
   try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
-  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){setSyncStatus('off');return;}
+  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){cfg=DEFAULT_FIREBASE_CFG;localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));}
+  if(!cfg){setSyncStatus('off');return;}
   try{
     var app;try{app=firebase.app();}catch(e){app=firebase.initializeApp(cfg);}
     _db=firebase.firestore(app);
@@ -891,7 +901,8 @@ function saveToCloud(){
 // Sync modal
 function openSyncModal(){
   var cfg=null;try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
-  var cfgStr=cfg?JSON.stringify(cfg,null,2):'{\n  "apiKey": "SUA_API_KEY_AQUI",\n  "authDomain": "SEU_PROJETO.firebaseapp.com",\n  "projectId": "SEU_PROJETO_ID",\n  "storageBucket": "SEU_PROJETO.appspot.com",\n  "messagingSenderId": "SEU_SENDER_ID",\n  "appId": "SEU_APP_ID"\n}';
+  if(!cfg)cfg=DEFAULT_FIREBASE_CFG;
+  var cfgStr=JSON.stringify(cfg,null,2);
   var ov=document.createElement('div');ov.className='modal-ov';ov.id='sync-modal';
   ov.innerHTML='<div class="modal-box"><h2>&#x2601; Sincronizacao entre dispositivos</h2>'
     +'<div class="modal-desc">Configure o Firebase Firestore (gratuito) para sincronizar desktop e celular em tempo real. Siga o Guia de Instalacao para obter as credenciais.</div>'
