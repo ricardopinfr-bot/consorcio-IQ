@@ -121,10 +121,9 @@ html{font-size:14px}body{font-family:'DM Sans',sans-serif;background:var(--bg);c
 .sync-dot.err{background:#dc2626}.sync-dot.off{background:#9b9a94}
 @keyframes sdpulse{0%,100%{opacity:1}50%{opacity:.3}}
 .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center}
-.modal-box{background:var(--sf);border-radius:var(--r);padding:24px;width:480px;max-width:94vw;box-shadow:var(--sh);max-height:90vh;overflow-y:auto}
+.modal-box{background:var(--sf);border-radius:var(--r);padding:24px;width:500px;max-width:94vw;box-shadow:var(--sh);max-height:90vh;overflow-y:auto}
 .modal-box h2{font-size:15px;font-weight:600;margin-bottom:6px}
-.modal-desc{font-size:12px;color:var(--t2);margin-bottom:16px;line-height:1.6}
-.cfg-area{font-size:11px;font-family:'DM Mono',monospace;width:100%;height:150px;border:1px solid var(--bm);border-radius:var(--rs);padding:8px;background:var(--bg);color:var(--tx);outline:none;resize:vertical}
+.cfg-area{font-size:11px;font-family:'DM Mono',monospace;width:100%;height:130px;border:1px solid var(--bm);border-radius:var(--rs);padding:8px;background:var(--bg);color:var(--tx);outline:none;resize:vertical}
 .cfg-area:focus{border-color:var(--blue)}
 </style>
 </head>
@@ -144,7 +143,7 @@ html{font-size:14px}body{font-family:'DM Sans',sans-serif;background:var(--bg);c
     <button class="btn btn-sm btn-p" onclick="addAssembly()">+ Assembleia</button>
     <button class="btn btn-sm" onclick="toggleTheme()">&#9680; Tema</button>
     <button class="btn btn-sm" id="install-btn" onclick="installPWA()" style="display:none;background:var(--pbg);color:var(--ptx);border-color:var(--ptx)" title="Instalar app">&#x2B07; Instalar</button>
-    <div class="sync-bar" onclick="openSyncModal()" title="Sincronizacao entre dispositivos">
+    <div class="sync-bar" onclick="openSyncModal()" title="Sincronizacao">
       <span class="sync-dot off" id="sync-dot"></span>
       <span id="sync-txt">Offline</span>
       <span style="color:var(--t3);font-size:10px">&#9881;</span>
@@ -813,230 +812,140 @@ function importData(){document.getElementById('file-input').click();}
 function handleImport(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(d.consortia){STATE=d;}else if(d.active!==undefined){STATE=d;}else{alert('Formato invalido.');return;}if(chartInst){chartInst.destroy();chartInst=null;}renderTabs();buildMainHTML();updateAll();save();alert('Importado! '+STATE.consortia.length+' consorcios.');}catch(err){alert('Erro: '+err.message);}};r.readAsText(f);e.target.value='';}
 function toggleTheme(){var d=document.documentElement;if(d.hasAttribute('data-dark'))d.removeAttribute('data-dark');else d.setAttribute('data-dark','');localStorage.setItem('ciq_dark',d.hasAttribute('data-dark')?'1':'0');}
 (function(){if(localStorage.getItem('ciq_dark')==='1')document.documentElement.setAttribute('data-dark','');})();
-</script>
-<!-- Firebase SDK — loaded AFTER app JS to avoid conflicts -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
 <script>
 // ============================================================
-// FIREBASE SYNC + PWA INSTALL
+// FIREBASE SYNC — Firestore REST API (polling 5s, no SDK)
 // ============================================================
-var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0,_connected=false;
+var _syncTimer=null,_saveTimer=null,_lastCloudTs=0,_connected=false,_lastErrMsg='';
 var SYNC_KEY='ciq_consorcioiq1';
-localStorage.setItem('ciq_sync_key',SYNC_KEY);
 var DEVICE_ID=(function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
-var _lastErrMsg='';
+var FB={apiKey:'AIzaSyD20-9UIKKVtimkTxJrK0-XIMA6AMYoxo8',projectId:'consorcio-IQ'};
+
+function fsURL(){return 'https://firestore.googleapis.com/v1/projects/'+FB.projectId+'/databases/(default)/documents/ciq_data/'+SYNC_KEY+'?key='+FB.apiKey;}
+
+function toFS(obj){var f={};Object.keys(obj).forEach(function(k){var v=obj[k];if(typeof v==='string')f[k]={stringValue:v};else if(typeof v==='number')f[k]={integerValue:String(Math.round(v))};else if(typeof v==='boolean')f[k]={booleanValue:v};});return{fields:f};}
+function fromFS(doc){if(!doc||!doc.fields)return null;var o={};Object.keys(doc.fields).forEach(function(k){var f=doc.fields[k];if(f.stringValue!==undefined)o[k]=f.stringValue;else if(f.integerValue!==undefined)o[k]=parseInt(f.integerValue);else if(f.booleanValue!==undefined)o[k]=f.booleanValue;});return o;}
 
 function setSyncStatus(s,msg){
   _lastErrMsg=s==='err'?msg:'';
   var dot=document.getElementById('sync-dot'),txt=document.getElementById('sync-txt');
   if(dot)dot.className='sync-dot '+s;
-  var labels={ok:'Sincronizado',syncing:'Sincronizando...',err:'Erro sync',off:'Offline'};
-  if(txt)txt.textContent=msg||(labels[s]||s);
+  var L={ok:'Sincronizado',syncing:'Salvando...',err:'Erro sync',off:'Offline'};
+  if(txt)txt.textContent=msg||(L[s]||s);
 }
 
-var DEFAULT_FIREBASE_CFG={
-  "apiKey":"AIzaSyD20-9UIKKVtimkTxJrK0-XIMA6AMYoxo8",
-  "authDomain":"consorcio-IQ.firebaseapp.com",
-  "projectId":"consorcio-IQ",
-  "storageBucket":"consorcio-IQ.firebasestorage.app",
-  "messagingSenderId":"798930577530",
-  "appId":"1:798930577530:web:331e03d4e2d35afdaa33c3"
-};
-
-function initFirebase(){
-  var cfg=null;
-  try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
-  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){
-    cfg=DEFAULT_FIREBASE_CFG;
-    localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));
-  }
-  // Always persist sync key
-  localStorage.setItem('ciq_sync_key',SYNC_KEY);
-  try{
-    var app;
-    try{app=firebase.app();}catch(e){app=firebase.initializeApp(cfg);}
-    _db=firebase.firestore(app);
-    setSyncStatus('syncing','Conectando...');
-    // Test connection with a real write — confirms rules + network
-    _db.collection('ciq_data').doc(SYNC_KEY).set({
-      state:JSON.stringify(STATE),
-      updatedAt:Date.now(),
-      deviceId:DEVICE_ID
-    }).then(function(){
-      _connected=true;
-      setSyncStatus('ok');
-      startListener();
-    }).catch(function(e){
-      _connected=false;
-      var msg=e.message||'';
-      if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
-        setSyncStatus('err','Regras Firestore bloqueando — veja instrucoes');
-      } else if(msg.indexOf('network')!==-1||msg.indexOf('offline')!==-1){
-        setSyncStatus('err','Sem rede — tentando offline');
-        startListener(); // still try listener for cached data
-      } else {
-        setSyncStatus('err',msg.slice(0,60));
-      }
-    });
-  }catch(e){setSyncStatus('err','Init: '+e.message);}
+function handleFSError(msg,res){
+  _connected=false;
+  var hint;
+  if(msg.indexOf('PERMISSION_DENIED')!==-1||msg.indexOf('403')!==-1)
+    hint='Regras Firestore bloqueando — publique as regras no console';
+  else if(msg.indexOf('NOT_FOUND')!==-1||msg.indexOf('404')!==-1)
+    hint='Banco nao encontrado — crie o Firestore Database no console';
+  else if(msg.indexOf('Failed to fetch')!==-1||msg.indexOf('NetworkError')!==-1)
+    hint='Sem rede — dados salvos localmente';
+  else hint=msg.slice(0,80);
+  setSyncStatus('err',hint);
+  if(res)res.innerHTML='<span style="color:var(--rtx)">&#x2718; '+hint+'</span>';
 }
 
-function startListener(){
-  if(!_db||!SYNC_KEY)return;
-  if(_unsub)_unsub();
-  _unsub=_db.collection('ciq_data').doc(SYNC_KEY)
-    .onSnapshot(function(snap){
-      if(!snap.exists)return;
-      var data=snap.data();
-      if(!data)return;
-      // Skip own writes (same deviceId) and older timestamps
+function writeToCloud(onDone){
+  var ts=Date.now();
+  fetch(fsURL(),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(toFS({state:JSON.stringify(STATE),updatedAt:ts,deviceId:DEVICE_ID}))})
+    .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error((e.error&&e.error.message)||String(r.status));});return r.json();})
+    .then(function(){_lastCloudTs=ts;_connected=true;setSyncStatus('ok');if(onDone)onDone(true);})
+    .catch(function(e){handleFSError(e.message||'',null);if(onDone)onDone(false,e.message||'');});
+}
+
+function pollCloud(){
+  fetch(fsURL(),{method:'GET'})
+    .then(function(r){if(r.status===404)return null;if(!r.ok)return r.json().then(function(e){throw new Error((e.error&&e.error.message)||String(r.status));});return r.json();})
+    .then(function(doc){
+      if(!doc)return;
+      var data=fromFS(doc);if(!data)return;
       if(data.deviceId===DEVICE_ID)return;
-      if(data.updatedAt&&data.updatedAt<=_lastCloudTs)return;
-      if(data.updatedAt)_lastCloudTs=data.updatedAt;
+      var rts=data.updatedAt||0;if(rts<=_lastCloudTs)return;
+      _lastCloudTs=rts;
       try{
-        var remote=JSON.parse(data.state);
-        if(remote&&remote.consortia){
-          STATE=remote;
-          localStorage.setItem('ciq_v6',JSON.stringify(STATE));
+        var rem=JSON.parse(data.state||'null');
+        if(rem&&rem.consortia){
+          STATE=rem;localStorage.setItem('ciq_v6',JSON.stringify(STATE));
           if(chartInst){chartInst.destroy();chartInst=null;}
           renderTabs();buildMainHTML();updateAll();
-          setSyncStatus('ok','Atualizado ('+new Date().toLocaleTimeString('pt-BR')+')');
+          var h=new Date().toLocaleTimeString('pt-BR');
+          setSyncStatus('ok','Atualizado ('+h+')');
           setTimeout(function(){setSyncStatus('ok');},4000);
         }
-      }catch(e){setSyncStatus('err','Parse: '+e.message);}
-    },function(e){
-      var msg=e.message||'';
-      if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
-        setSyncStatus('err','Regras Firestore — acesse o modal sync');
-      } else {
-        setSyncStatus('err','Listen: '+msg.slice(0,50));
-      }
-    });
+      }catch(ex){}
+    })
+    .catch(function(){/* silent poll error */});
 }
 
-function saveToCloud(){
-  if(!_db||!SYNC_KEY)return;
-  setSyncStatus('syncing');
-  var ts=Date.now();
-  _db.collection('ciq_data').doc(SYNC_KEY).set({
-    state:JSON.stringify(STATE),updatedAt:ts,deviceId:DEVICE_ID
-  }).then(function(){
-    _lastCloudTs=ts;_connected=true;setSyncStatus('ok');
-  }).catch(function(e){
-    var msg=e.message||'';
-    if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
-      setSyncStatus('err','Permissao negada — corrija as Regras no Firestore');
-    } else {
-      setSyncStatus('err',msg.slice(0,60));
-    }
-  });
+function saveToCloud(){if(!FB.apiKey)return;setSyncStatus('syncing');writeToCloud();}
+function startPolling(){if(_syncTimer)clearInterval(_syncTimer);_syncTimer=setInterval(pollCloud,5000);pollCloud();}
+
+function initFirebase(){
+  if(!FB.apiKey){setSyncStatus('off');return;}
+  setSyncStatus('syncing','Conectando...');
+  writeToCloud(function(ok){if(ok)startPolling();});
 }
 
-// Patch save() to also trigger cloud sync with debounce
 (function patchSave(){
-  save=function(){
-    try{localStorage.setItem('ciq_v6',JSON.stringify(STATE));showSaveStatus('saved');}catch(e){showSaveStatus('error');}
-    if(_saveTimer)clearTimeout(_saveTimer);
-    _saveTimer=setTimeout(saveToCloud,1500);
-  };
+  save=function(){try{localStorage.setItem('ciq_v6',JSON.stringify(STATE));showSaveStatus('saved');}catch(e){showSaveStatus('error');}if(_saveTimer)clearTimeout(_saveTimer);_saveTimer=setTimeout(saveToCloud,1200);};
   manualSave=function(){save();showSaveStatus('manual');saveToCloud();};
 })();
 
-// Sync modal
+function testFirebaseConnection(){
+  var res=document.getElementById('test-result');
+  if(res)res.innerHTML='<span style="color:var(--atx)">Testando...</span>';
+  writeToCloud(function(ok,errMsg){
+    if(!res)return;
+    if(ok){res.innerHTML='<span style="color:var(--gtx)">&#x2714; Conexao OK! Regras corretas. Sync ativo.</span>';startPolling();}
+    else{handleFSError(errMsg||'',res);}
+  });
+}
+
 function openSyncModal(){
-  var cfg=null;try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
-  if(!cfg)cfg=DEFAULT_FIREBASE_CFG;
-  var cfgStr=JSON.stringify(cfg,null,2);
-  var errBlock=_lastErrMsg?('<div style="background:var(--rbg);border:1px solid rgba(220,38,38,.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--rtx)"><strong>Ultimo erro:</strong> '+_lastErrMsg+'</div>'):'';
-  var statusColor=_connected?'var(--gtx)':'var(--rtx)';
-  var statusTxt=_connected?'Conectado ao Firebase':'Nao conectado';
+  var sc=_connected?'var(--gtx)':'var(--rtx)',st=_connected?'Conectado':'Nao conectado';
+  var errB=_lastErrMsg?('<div style="background:var(--rbg);border:1px solid rgba(220,38,38,.2);border-radius:var(--rs);padding:9px 11px;margin-bottom:10px;font-size:11px;color:var(--rtx)"><strong>Erro:</strong> '+_lastErrMsg+'</div>'):'';
   var ov=document.createElement('div');ov.className='modal-ov';ov.id='sync-modal';
-  ov.innerHTML='<div class="modal-box"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
-    +'<h2>&#x2601; Sincronizacao entre dispositivos</h2>'
-    +'<button class="btn btn-sm" onclick="document.getElementById(\'sync-modal\').remove()">Fechar</button></div>'
-    +'<div style="font-size:11px;font-weight:500;color:'+statusColor+';margin-bottom:10px">&#x25CF; '+statusTxt+' &nbsp;|&nbsp; Chave: <code style="background:var(--sf2);padding:1px 5px;border-radius:3px">'+SYNC_KEY+'</code></div>'
-    +errBlock
-    +'<div style="background:var(--abg);border:1px solid rgba(217,119,6,.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--atx)">'
-    +'<strong>&#x26A0; Passo obrigatorio se nao sincronizar:</strong> No Firebase Console &rarr; Firestore Database &rarr; Regras &rarr; cole e publique:<br/>'
-    +'<code style="display:block;background:var(--bg);color:var(--tx);padding:8px;border-radius:4px;margin-top:6px;font-size:10px;line-height:1.6;white-space:pre">'
-    +'rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /ciq_data/{id} {\n      allow read, write: if true;\n    }\n  }\n}'
+  ov.innerHTML='<div class="modal-box">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h2>&#x2601; Sincronizacao entre dispositivos</h2><button class="btn btn-sm" onclick="document.getElementById('sync-modal').remove()">Fechar</button></div>'
+    +'<div style="font-size:11px;font-weight:500;color:'+sc+';margin-bottom:10px">&#x25CF; '+st+' &nbsp;|&nbsp; Chave: <code style="background:var(--sf2);padding:1px 6px;border-radius:3px">'+SYNC_KEY+'</code></div>'
+    +errB
+    +'<div style="background:var(--abg);border:1px solid rgba(217,119,6,.2);border-radius:var(--rs);padding:11px 13px;margin-bottom:12px;font-size:11px;color:var(--atx)">'
+    +'<strong>&#x26A0; Passo obrigatorio — Regras do Firestore:</strong><br/>'
+    +'<a href="https://console.firebase.google.com" target="_blank" style="color:var(--atx)">console.firebase.google.com</a> &rarr; consorcio-IQ &rarr; Firestore Database &rarr; Regras &rarr; cole e publique:<br/>'
+    +'<code style="display:block;background:rgba(0,0,0,.07);padding:8px;border-radius:4px;margin-top:6px;font-size:10px;line-height:1.7;white-space:pre;color:inherit">'
+    +"rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /ciq_data/{id} {
+      allow read, write: if true;
+    }
+  }
+}"
     +'</code></div>'
-    +'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Configuracao Firebase:</div>'
-    +'<textarea class="cfg-area" id="fb-cfg-area">'+cfgStr+'</textarea></div>'
-    +'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Chave de sincronizacao (mesma nos dois dispositivos):</div>'
-    +'<div style="display:flex;gap:7px"><input class="fi" id="sync-key-inp" value="'+SYNC_KEY+'" style="flex:1"/>'
-    +'<button class="btn" onclick="document.getElementById(\'sync-key-inp\').value=\'ciq_\'+Math.random().toString(36).slice(2,10)">Nova</button></div>'
+    +'<div style="font-size:11px;color:var(--t2);padding:9px 11px;background:var(--sf2);border-radius:var(--rs);margin-bottom:12px">'
+    +'<strong>Verificar se Firestore foi criado:</strong> No Firebase Console &rarr; Firestore Database &rarr; deve mostrar a aba "Dados". Se pedir para criar, use <strong>Modo producao</strong>, regiao <strong>southamerica-east1</strong>.'
     +'</div>'
     +'<div style="display:flex;justify-content:space-between;align-items:center">'
-    +'<button class="btn btn-p" onclick="testFirebaseConnection()" style="background:var(--gbg);color:var(--gtx);border-color:var(--green)">&#x25B6; Testar conexao</button>'
-    +'<div style="display:flex;gap:8px">'
-    +'<button class="btn" onclick="document.getElementById(\'sync-modal\').remove()">Cancelar</button>'
-    +'<button class="btn btn-p" onclick="applySyncCfg()">Salvar e reconectar</button></div></div>'
+    +'<button class="btn" style="background:var(--gbg);color:var(--gtx);border-color:var(--green)" onclick="testFirebaseConnection()">&#x25B6; Testar conexao</button>'
+    +'<button class="btn btn-p" onclick="document.getElementById('sync-modal').remove();if(_syncTimer)clearInterval(_syncTimer);_connected=false;initFirebase()">Reconectar</button>'
+    +'</div>'
     +'<div id="test-result" style="margin-top:10px;font-size:11px"></div>'
     +'</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
 
-function testFirebaseConnection(){
-  var res=document.getElementById('test-result');
-  if(res)res.innerHTML='<span style="color:var(--atx)">Testando...</span>';
-  if(!_db){if(res)res.innerHTML='<span style="color:var(--rtx)">Firebase nao inicializado. Salve a config primeiro.</span>';return;}
-  _db.collection('ciq_data').doc(SYNC_KEY).set({ping:true,ts:Date.now(),deviceId:DEVICE_ID})
-    .then(function(){if(res)res.innerHTML='<span style="color:var(--gtx)">&#x2714; Conexao OK! Escrita autorizada no Firestore.</span>';_connected=true;setSyncStatus('ok');})
-    .catch(function(e){
-      var msg=e.message||'';
-      var hint=msg.indexOf('permission')!==-1?'Regras do Firestore bloqueando. Cole as regras acima e publique.':'Erro: '+msg;
-      if(res)res.innerHTML='<span style="color:var(--rtx)">&#x2718; '+hint+'</span>';
-      setSyncStatus('err',hint);
-    });
-}
-
-function applySyncCfg(){
-  var cfgTxt=document.getElementById('fb-cfg-area').value.trim();
-  var keyVal=(document.getElementById('sync-key-inp').value||'').trim();
-  try{
-    var cfg=JSON.parse(cfgTxt);
-    if(!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){alert('Preencha o apiKey com os dados reais do Firebase.');return;}
-    localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));
-    if(keyVal){SYNC_KEY=keyVal;localStorage.setItem('ciq_sync_key',keyVal);}
-    document.getElementById('sync-modal').remove();
-    if(_unsub){_unsub();_unsub=null;}
-    _db=null;_connected=false;
-    try{firebase.app().delete().then(function(){initFirebase();saveToCloud();}).catch(function(){initFirebase();saveToCloud();});}
-    catch(e){initFirebase();saveToCloud();}
-  }catch(e){alert('JSON invalido: '+e.message);}
-}
-
-// PWA install
 var _installPrompt=null;
-window.addEventListener('beforeinstallprompt',function(e){
-  e.preventDefault();_installPrompt=e;
-  var btn=document.getElementById('install-btn');if(btn)btn.style.display='inline-flex';
-});
-function installPWA(){
-  if(!_installPrompt)return;
-  _installPrompt.prompt();
-  _installPrompt.userChoice.then(function(r){
-    if(r.outcome==='accepted'){var btn=document.getElementById('install-btn');if(btn)btn.style.display='none';}
-    _installPrompt=null;
-  });
-}
+window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();_installPrompt=e;var b=document.getElementById('install-btn');if(b)b.style.display='inline-flex';});
+function installPWA(){if(!_installPrompt)return;_installPrompt.prompt();_installPrompt.userChoice.then(function(r){if(r.outcome==='accepted'){var b=document.getElementById('install-btn');if(b)b.style.display='none';}_installPrompt=null;});}
 
-// Service Worker
-if('serviceWorker' in navigator){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('./sw.js')
-      .then(function(r){console.log('SW ok:',r.scope);})
-      .catch(function(e){console.warn('SW err:',e);});
-  });
-}
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').then(function(r){console.log('SW:',r.scope);}).catch(function(e){console.warn('SW err:',e);});});}
 
-// Init Firebase after app loads
-window.addEventListener('DOMContentLoaded',function(){
-  setTimeout(initFirebase,600);
-});
+window.addEventListener('DOMContentLoaded',function(){setTimeout(initFirebase,800);});
 </script>
 </body>
 </html>
