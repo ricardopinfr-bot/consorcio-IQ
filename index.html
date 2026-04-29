@@ -821,14 +821,17 @@ function toggleTheme(){var d=document.documentElement;if(d.hasAttribute('data-da
 // ============================================================
 // FIREBASE SYNC + PWA INSTALL
 // ============================================================
-var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0;
+var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0,_connected=false;
 var SYNC_KEY=localStorage.getItem('ciq_sync_key')||'ciq_consorcioiq1';
 var DEVICE_ID=(function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
+var _lastErrMsg='';
 
 function setSyncStatus(s,msg){
+  _lastErrMsg=s==='err'?msg:'';
   var dot=document.getElementById('sync-dot'),txt=document.getElementById('sync-txt');
-  if(dot){dot.className='sync-dot '+s;}
-  if(txt){txt.textContent=msg||(s==='ok'?'Sincronizado':s==='syncing'?'Sincronizando...':s==='err'?'Erro sync':'Offline');}
+  if(dot)dot.className='sync-dot '+s;
+  var labels={ok:'Sincronizado',syncing:'Sincronizando...',err:'Erro sync',off:'Offline'};
+  if(txt)txt.textContent=msg||(labels[s]||s);
 }
 
 var DEFAULT_FIREBASE_CFG={
@@ -843,37 +846,72 @@ var DEFAULT_FIREBASE_CFG={
 function initFirebase(){
   var cfg=null;
   try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
-  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){cfg=DEFAULT_FIREBASE_CFG;localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));}
-  if(!cfg){setSyncStatus('off');return;}
+  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){
+    cfg=DEFAULT_FIREBASE_CFG;
+    localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));
+  }
+  // Always persist sync key
+  localStorage.setItem('ciq_sync_key',SYNC_KEY);
   try{
-    var app;try{app=firebase.app();}catch(e){app=firebase.initializeApp(cfg);}
+    var app;
+    try{app=firebase.app();}catch(e){app=firebase.initializeApp(cfg);}
     _db=firebase.firestore(app);
-    if(!SYNC_KEY){SYNC_KEY='ciq_'+Math.random().toString(36).slice(2,10);localStorage.setItem('ciq_sync_key',SYNC_KEY);}
-    startListener();
-    setSyncStatus('ok');
-  }catch(e){setSyncStatus('err','Erro: '+e.message);}
+    setSyncStatus('syncing','Conectando...');
+    // Test connection with a real write — confirms rules + network
+    _db.collection('ciq_data').doc(SYNC_KEY).set({
+      state:JSON.stringify(STATE),
+      updatedAt:Date.now(),
+      deviceId:DEVICE_ID
+    }).then(function(){
+      _connected=true;
+      setSyncStatus('ok');
+      startListener();
+    }).catch(function(e){
+      _connected=false;
+      var msg=e.message||'';
+      if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
+        setSyncStatus('err','Regras Firestore bloqueando — veja instrucoes');
+      } else if(msg.indexOf('network')!==-1||msg.indexOf('offline')!==-1){
+        setSyncStatus('err','Sem rede — tentando offline');
+        startListener(); // still try listener for cached data
+      } else {
+        setSyncStatus('err',msg.slice(0,60));
+      }
+    });
+  }catch(e){setSyncStatus('err','Init: '+e.message);}
 }
 
 function startListener(){
   if(!_db||!SYNC_KEY)return;
   if(_unsub)_unsub();
-  _unsub=_db.collection('ciq_data').doc(SYNC_KEY).onSnapshot(function(snap){
-    if(!snap.exists)return;
-    var data=snap.data();
-    if(!data||data.deviceId===DEVICE_ID)return;
-    if(data.updatedAt<=_lastCloudTs)return;
-    _lastCloudTs=data.updatedAt;
-    try{
-      var remote=JSON.parse(data.state);
-      if(remote&&remote.consortia){
-        STATE=remote;
-        localStorage.setItem('ciq_v6',JSON.stringify(STATE));
-        if(chartInst){chartInst.destroy();chartInst=null;}
-        renderTabs();buildMainHTML();updateAll();
-        setSyncStatus('ok','Atualizado de outro dispositivo');
+  _unsub=_db.collection('ciq_data').doc(SYNC_KEY)
+    .onSnapshot(function(snap){
+      if(!snap.exists)return;
+      var data=snap.data();
+      if(!data)return;
+      // Skip own writes (same deviceId) and older timestamps
+      if(data.deviceId===DEVICE_ID)return;
+      if(data.updatedAt&&data.updatedAt<=_lastCloudTs)return;
+      if(data.updatedAt)_lastCloudTs=data.updatedAt;
+      try{
+        var remote=JSON.parse(data.state);
+        if(remote&&remote.consortia){
+          STATE=remote;
+          localStorage.setItem('ciq_v6',JSON.stringify(STATE));
+          if(chartInst){chartInst.destroy();chartInst=null;}
+          renderTabs();buildMainHTML();updateAll();
+          setSyncStatus('ok','Atualizado ('+new Date().toLocaleTimeString('pt-BR')+')');
+          setTimeout(function(){setSyncStatus('ok');},4000);
+        }
+      }catch(e){setSyncStatus('err','Parse: '+e.message);}
+    },function(e){
+      var msg=e.message||'';
+      if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
+        setSyncStatus('err','Regras Firestore — acesse o modal sync');
+      } else {
+        setSyncStatus('err','Listen: '+msg.slice(0,50));
       }
-    }catch(e){setSyncStatus('err','Erro ao receber');}
-  },function(e){setSyncStatus('err','Listener: '+e.message);});
+    });
 }
 
 function saveToCloud(){
@@ -882,19 +920,25 @@ function saveToCloud(){
   var ts=Date.now();
   _db.collection('ciq_data').doc(SYNC_KEY).set({
     state:JSON.stringify(STATE),updatedAt:ts,deviceId:DEVICE_ID
-  }).then(function(){_lastCloudTs=ts;setSyncStatus('ok');})
-  .catch(function(e){setSyncStatus('err','Nao salvo: '+e.message);});
+  }).then(function(){
+    _lastCloudTs=ts;_connected=true;setSyncStatus('ok');
+  }).catch(function(e){
+    var msg=e.message||'';
+    if(msg.indexOf('permission')!==-1||msg.indexOf('Missing')!==-1){
+      setSyncStatus('err','Permissao negada — corrija as Regras no Firestore');
+    } else {
+      setSyncStatus('err',msg.slice(0,60));
+    }
+  });
 }
 
 // Patch save() to also trigger cloud sync with debounce
 (function patchSave(){
-  var origSave=save;
   save=function(){
     try{localStorage.setItem('ciq_v6',JSON.stringify(STATE));showSaveStatus('saved');}catch(e){showSaveStatus('error');}
     if(_saveTimer)clearTimeout(_saveTimer);
     _saveTimer=setTimeout(saveToCloud,1500);
   };
-  var origManual=manualSave;
   manualSave=function(){save();showSaveStatus('manual');saveToCloud();};
 })();
 
@@ -903,20 +947,49 @@ function openSyncModal(){
   var cfg=null;try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
   if(!cfg)cfg=DEFAULT_FIREBASE_CFG;
   var cfgStr=JSON.stringify(cfg,null,2);
+  var errBlock=_lastErrMsg?('<div style="background:var(--rbg);border:1px solid rgba(220,38,38,.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--rtx)"><strong>Ultimo erro:</strong> '+_lastErrMsg+'</div>'):'';
+  var statusColor=_connected?'var(--gtx)':'var(--rtx)';
+  var statusTxt=_connected?'Conectado ao Firebase':'Nao conectado';
   var ov=document.createElement('div');ov.className='modal-ov';ov.id='sync-modal';
-  ov.innerHTML='<div class="modal-box"><h2>&#x2601; Sincronizacao entre dispositivos</h2>'
-    +'<div class="modal-desc">Configure o Firebase Firestore (gratuito) para sincronizar desktop e celular em tempo real. Siga o Guia de Instalacao para obter as credenciais.</div>'
-    +'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Configuracao Firebase (JSON do console):</div>'
+  ov.innerHTML='<div class="modal-box"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
+    +'<h2>&#x2601; Sincronizacao entre dispositivos</h2>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'sync-modal\').remove()">Fechar</button></div>'
+    +'<div style="font-size:11px;font-weight:500;color:'+statusColor+';margin-bottom:10px">&#x25CF; '+statusTxt+' &nbsp;|&nbsp; Chave: <code style="background:var(--sf2);padding:1px 5px;border-radius:3px">'+SYNC_KEY+'</code></div>'
+    +errBlock
+    +'<div style="background:var(--abg);border:1px solid rgba(217,119,6,.25);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:11px;color:var(--atx)">'
+    +'<strong>&#x26A0; Passo obrigatorio se nao sincronizar:</strong> No Firebase Console &rarr; Firestore Database &rarr; Regras &rarr; cole e publique:<br/>'
+    +'<code style="display:block;background:var(--bg);color:var(--tx);padding:8px;border-radius:4px;margin-top:6px;font-size:10px;line-height:1.6;white-space:pre">'
+    +'rules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /ciq_data/{id} {\n      allow read, write: if true;\n    }\n  }\n}'
+    +'</code></div>'
+    +'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Configuracao Firebase:</div>'
     +'<textarea class="cfg-area" id="fb-cfg-area">'+cfgStr+'</textarea></div>'
-    +'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Chave de sincronizacao:</div>'
-    +'<div style="display:flex;gap:7px"><input class="fi" id="sync-key-inp" value="'+(SYNC_KEY||'')+'" placeholder="Gerada automaticamente" style="flex:1"/>'
+    +'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Chave de sincronizacao (mesma nos dois dispositivos):</div>'
+    +'<div style="display:flex;gap:7px"><input class="fi" id="sync-key-inp" value="'+SYNC_KEY+'" style="flex:1"/>'
     +'<button class="btn" onclick="document.getElementById(\'sync-key-inp\').value=\'ciq_\'+Math.random().toString(36).slice(2,10)">Nova</button></div>'
-    +'<div style="font-size:10px;color:var(--t3);margin-top:4px">Use a mesma chave nos dois dispositivos. Nao compartilhe.</div></div>'
-    +'<div style="display:flex;justify-content:flex-end;gap:8px">'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:center">'
+    +'<button class="btn btn-p" onclick="testFirebaseConnection()" style="background:var(--gbg);color:var(--gtx);border-color:var(--green)">&#x25B6; Testar conexao</button>'
+    +'<div style="display:flex;gap:8px">'
     +'<button class="btn" onclick="document.getElementById(\'sync-modal\').remove()">Cancelar</button>'
-    +'<button class="btn btn-p" onclick="applySyncCfg()">Salvar e conectar</button></div></div>';
+    +'<button class="btn btn-p" onclick="applySyncCfg()">Salvar e reconectar</button></div></div>'
+    +'<div id="test-result" style="margin-top:10px;font-size:11px"></div>'
+    +'</div>';
   document.body.appendChild(ov);
   ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
+}
+
+function testFirebaseConnection(){
+  var res=document.getElementById('test-result');
+  if(res)res.innerHTML='<span style="color:var(--atx)">Testando...</span>';
+  if(!_db){if(res)res.innerHTML='<span style="color:var(--rtx)">Firebase nao inicializado. Salve a config primeiro.</span>';return;}
+  _db.collection('ciq_data').doc(SYNC_KEY).set({ping:true,ts:Date.now(),deviceId:DEVICE_ID})
+    .then(function(){if(res)res.innerHTML='<span style="color:var(--gtx)">&#x2714; Conexao OK! Escrita autorizada no Firestore.</span>';_connected=true;setSyncStatus('ok');})
+    .catch(function(e){
+      var msg=e.message||'';
+      var hint=msg.indexOf('permission')!==-1?'Regras do Firestore bloqueando. Cole as regras acima e publique.':'Erro: '+msg;
+      if(res)res.innerHTML='<span style="color:var(--rtx)">&#x2718; '+hint+'</span>';
+      setSyncStatus('err',hint);
+    });
 }
 
 function applySyncCfg(){
@@ -928,10 +1001,10 @@ function applySyncCfg(){
     localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));
     if(keyVal){SYNC_KEY=keyVal;localStorage.setItem('ciq_sync_key',keyVal);}
     document.getElementById('sync-modal').remove();
-    // Reset firebase app if already initialized
-    try{firebase.app().delete().then(function(){_db=null;initFirebase();saveToCloud();});}
+    if(_unsub){_unsub();_unsub=null;}
+    _db=null;_connected=false;
+    try{firebase.app().delete().then(function(){initFirebase();saveToCloud();}).catch(function(){initFirebase();saveToCloud();});}
     catch(e){initFirebase();saveToCloud();}
-    alert('Firebase configurado! Sincronizando...');
   }catch(e){alert('JSON invalido: '+e.message);}
 }
 
