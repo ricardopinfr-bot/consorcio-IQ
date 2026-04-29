@@ -2,20 +2,16 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-
-  <!-- PWA -->
-  <link rel="manifest" href="./manifest.json"/>
-  <meta name="mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="Consorcio IQ"/>
-  <link rel="apple-touch-icon" href="./icon-192.png"/>
-  <meta name="theme-color" content="#2563eb"/>
-  <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Consorcio IQ</title>
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="Consorcio IQ"/>
+<link rel="apple-touch-icon" href="./icon-192.png"/>
+<meta name="theme-color" content="#2563eb"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 :root{--bg:#f7f6f3;--sf:#fff;--sf2:#f0efe9;--sf3:#e8e7e0;--bo:rgba(0,0,0,.08);--bm:rgba(0,0,0,.14);--tx:#1a1916;--t2:#6b6a65;--t3:#9b9a94;--blue:#2563eb;--bbg:#eff6ff;--btx:#1d4ed8;--green:#16a34a;--gbg:#f0fdf4;--gtx:#15803d;--amber:#d97706;--abg:#fffbeb;--atx:#b45309;--red:#dc2626;--rbg:#fef2f2;--rtx:#b91c1c;--purple:#7c3aed;--pbg:#f5f3ff;--ptx:#6d28d9;--r:10px;--rs:6px;--sh:0 4px 14px rgba(0,0,0,.1)}
@@ -117,27 +113,19 @@ html{font-size:14px}body{font-family:'DM Sans',sans-serif;background:var(--bg);c
 #save-btn{transition:all .2s}#save-btn:hover{background:var(--gbg);border-color:var(--green)}
 #save-status{transition:all .3s}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.sidebar{position:static;height:auto;border-left:none;border-top:1px solid var(--bo)}.g4{grid-template-columns:1fr 1fr}.g5{grid-template-columns:1fr 1fr}}
-
-  .sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:var(--rs);border:1px solid var(--bm);background:var(--sf);transition:all .15s}
-  .sync-bar:hover{background:var(--sf2)}
-  .sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
-  .sync-dot.ok{background:#16a34a}.sync-dot.syncing{background:#d97706;animation:pulse .8s infinite}
-  .sync-dot.err{background:#dc2626}.sync-dot.off{background:#9b9a94}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center}
-  .modal{background:var(--sf);border-radius:var(--r);padding:24px;width:460px;max-width:94vw;box-shadow:var(--sh)}
-  .modal h2{font-size:15px;font-weight:600;margin-bottom:4px}
-  .modal-desc{font-size:12px;color:var(--t2);margin-bottom:18px;line-height:1.6}
-  .modal-row{display:flex;gap:8px;margin-bottom:10px}
-  .modal-lbl{font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px}
-  .config-area{font-size:11px;font-family:'DM Mono',monospace;width:100%;height:140px;border:1px solid var(--bm);border-radius:var(--rs);padding:8px;background:var(--bg);color:var(--tx);outline:none;resize:vertical}
-  .config-area:focus{border-color:var(--blue)}
-  .step{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--bo)}
-  .step:last-child{border-bottom:none}
-  .step-n{width:22px;height:22px;border-radius:50%;background:var(--bbg);color:var(--btx);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-  .step-t{font-size:12px;line-height:1.6;color:var(--t2)}
-  .step-t strong{color:var(--tx)}
-  .badge-sync{font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
+/* SYNC */
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;padding:3px 8px;border-radius:var(--rs);border:1px solid var(--bm);background:var(--sf);transition:all .15s}
+.sync-bar:hover{background:var(--sf2)}
+.sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.sync-dot.ok{background:#16a34a}.sync-dot.syncing{background:#d97706;animation:sdpulse .8s infinite}
+.sync-dot.err{background:#dc2626}.sync-dot.off{background:#9b9a94}
+@keyframes sdpulse{0%,100%{opacity:1}50%{opacity:.3}}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--sf);border-radius:var(--r);padding:24px;width:480px;max-width:94vw;box-shadow:var(--sh);max-height:90vh;overflow-y:auto}
+.modal-box h2{font-size:15px;font-weight:600;margin-bottom:6px}
+.modal-desc{font-size:12px;color:var(--t2);margin-bottom:16px;line-height:1.6}
+.cfg-area{font-size:11px;font-family:'DM Mono',monospace;width:100%;height:150px;border:1px solid var(--bm);border-radius:var(--rs);padding:8px;background:var(--bg);color:var(--tx);outline:none;resize:vertical}
+.cfg-area:focus{border-color:var(--blue)}
 </style>
 </head>
 <body>
@@ -155,12 +143,11 @@ html{font-size:14px}body{font-family:'DM Sans',sans-serif;background:var(--bg);c
     <button class="btn btn-sm" onclick="exportData()">Exportar</button>
     <button class="btn btn-sm btn-p" onclick="addAssembly()">+ Assembleia</button>
     <button class="btn btn-sm" onclick="toggleTheme()">&#9680; Tema</button>
-
-    <button class="btn btn-sm" id="install-btn" onclick="installPWA()" style="display:none;background:var(--pbg);color:var(--ptx);border-color:var(--ptx)">&#x2B07; Instalar</button>
-    <div class="sync-bar" onclick="openSyncModal()" title="Configurar sincronizacao entre dispositivos">
+    <button class="btn btn-sm" id="install-btn" onclick="installPWA()" style="display:none;background:var(--pbg);color:var(--ptx);border-color:var(--ptx)" title="Instalar app">&#x2B07; Instalar</button>
+    <div class="sync-bar" onclick="openSyncModal()" title="Sincronizacao entre dispositivos">
       <span class="sync-dot off" id="sync-dot"></span>
       <span id="sync-txt">Offline</span>
-      <span style="color:var(--t3);font-size:10px">&#x2699;</span>
+      <span style="color:var(--t3);font-size:10px">&#9881;</span>
     </div>
   </div>
 </header>
@@ -826,169 +813,144 @@ function importData(){document.getElementById('file-input').click();}
 function handleImport(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){try{var d=JSON.parse(ev.target.result);if(d.consortia){STATE=d;}else if(d.active!==undefined){STATE=d;}else{alert('Formato invalido.');return;}if(chartInst){chartInst.destroy();chartInst=null;}renderTabs();buildMainHTML();updateAll();save();alert('Importado! '+STATE.consortia.length+' consorcios.');}catch(err){alert('Erro: '+err.message);}};r.readAsText(f);e.target.value='';}
 function toggleTheme(){var d=document.documentElement;if(d.hasAttribute('data-dark'))d.removeAttribute('data-dark');else d.setAttribute('data-dark','');localStorage.setItem('ciq_dark',d.hasAttribute('data-dark')?'1':'0');}
 (function(){if(localStorage.getItem('ciq_dark')==='1')document.documentElement.setAttribute('data-dark','');})();
-
+</script>
+<!-- Firebase SDK — loaded AFTER app JS to avoid conflicts -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script>
 // ============================================================
-// FIREBASE SYNC + PWA
+// FIREBASE SYNC + PWA INSTALL
 // ============================================================
-var FIREBASE_CONFIG = null; // set by user
-var _db = null, _unsubscribe = null;
-var SYNC_KEY = localStorage.getItem('ciq_sync_key') || '';
-var DEVICE_ID = (function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
-var _syncStatus = 'off'; // off | ok | syncing | err
-var _saveTimer = null;
-var _lastCloudTs = 0;
+var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0;
+var SYNC_KEY=localStorage.getItem('ciq_sync_key')||'';
+var DEVICE_ID=(function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
 
-function setSyncStatus(s, msg) {
-  _syncStatus = s;
-  var dot = document.getElementById('sync-dot');
-  var txt = document.getElementById('sync-txt');
-  if (dot) { dot.className = 'sync-dot ' + s; }
-  if (txt) { txt.textContent = msg || (s==='ok'?'Sincronizado':s==='syncing'?'Sincronizando...':s==='err'?'Erro sync':'Offline'); }
+function setSyncStatus(s,msg){
+  var dot=document.getElementById('sync-dot'),txt=document.getElementById('sync-txt');
+  if(dot){dot.className='sync-dot '+s;}
+  if(txt){txt.textContent=msg||(s==='ok'?'Sincronizado':s==='syncing'?'Sincronizando...':s==='err'?'Erro sync':'Offline');}
 }
 
-function initFirebase() {
-  var cfg = null;
-  try { cfg = JSON.parse(localStorage.getItem('ciq_firebase_cfg') || 'null'); } catch(e){}
-  if (!cfg || !cfg.apiKey || cfg.apiKey === 'SUA_API_KEY_AQUI') { setSyncStatus('off'); return; }
-  FIREBASE_CONFIG = cfg;
-  try {
-    var app;
-    try { app = firebase.app(); } catch(e) { app = firebase.initializeApp(cfg); }
-    _db = firebase.firestore(app);
-    if (!SYNC_KEY) {
-      SYNC_KEY = 'ciq_' + Math.random().toString(36).slice(2, 10);
-      localStorage.setItem('ciq_sync_key', SYNC_KEY);
-    }
+function initFirebase(){
+  var cfg=null;
+  try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
+  if(!cfg||!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){setSyncStatus('off');return;}
+  try{
+    var app;try{app=firebase.app();}catch(e){app=firebase.initializeApp(cfg);}
+    _db=firebase.firestore(app);
+    if(!SYNC_KEY){SYNC_KEY='ciq_'+Math.random().toString(36).slice(2,10);localStorage.setItem('ciq_sync_key',SYNC_KEY);}
     startListener();
     setSyncStatus('ok');
-    document.getElementById('sync-key-display') && (document.getElementById('sync-key-display').value = SYNC_KEY);
-  } catch(e) { setSyncStatus('err', 'Erro: '+e.message); }
+  }catch(e){setSyncStatus('err','Erro: '+e.message);}
 }
 
-function startListener() {
-  if (!_db || !SYNC_KEY) return;
-  if (_unsubscribe) _unsubscribe();
-  _unsubscribe = _db.collection('ciq_data').doc(SYNC_KEY)
-    .onSnapshot(function(snap) {
-      if (!snap.exists) return;
-      var data = snap.data();
-      if (!data || data.deviceId === DEVICE_ID) return; // own update
-      if (data.updatedAt <= _lastCloudTs) return; // older or equal
-      _lastCloudTs = data.updatedAt;
-      try {
-        var remoteState = JSON.parse(data.state);
-        if (remoteState && remoteState.consortia) {
-          STATE = remoteState;
-          localStorage.setItem('ciq_v6', JSON.stringify(STATE));
-          if (chartInst) { chartInst.destroy(); chartInst = null; }
-          renderTabs(); buildMainHTML(); updateAll();
-          setSyncStatus('ok', 'Atualizado de outro dispositivo');
-        }
-      } catch(e) { setSyncStatus('err', 'Erro ao receber dados'); }
-    }, function(err) { setSyncStatus('err', 'Listener: '+err.message); });
+function startListener(){
+  if(!_db||!SYNC_KEY)return;
+  if(_unsub)_unsub();
+  _unsub=_db.collection('ciq_data').doc(SYNC_KEY).onSnapshot(function(snap){
+    if(!snap.exists)return;
+    var data=snap.data();
+    if(!data||data.deviceId===DEVICE_ID)return;
+    if(data.updatedAt<=_lastCloudTs)return;
+    _lastCloudTs=data.updatedAt;
+    try{
+      var remote=JSON.parse(data.state);
+      if(remote&&remote.consortia){
+        STATE=remote;
+        localStorage.setItem('ciq_v6',JSON.stringify(STATE));
+        if(chartInst){chartInst.destroy();chartInst=null;}
+        renderTabs();buildMainHTML();updateAll();
+        setSyncStatus('ok','Atualizado de outro dispositivo');
+      }
+    }catch(e){setSyncStatus('err','Erro ao receber');}
+  },function(e){setSyncStatus('err','Listener: '+e.message);});
 }
 
-function saveToCloud() {
-  if (!_db || !SYNC_KEY) return;
+function saveToCloud(){
+  if(!_db||!SYNC_KEY)return;
   setSyncStatus('syncing');
-  var ts = Date.now();
+  var ts=Date.now();
   _db.collection('ciq_data').doc(SYNC_KEY).set({
-    state: JSON.stringify(STATE),
-    updatedAt: ts,
-    deviceId: DEVICE_ID
-  }).then(function() {
-    _lastCloudTs = ts;
-    setSyncStatus('ok');
-  }).catch(function(e) {
-    setSyncStatus('err', 'Nao salvo: '+e.message);
-  });
+    state:JSON.stringify(STATE),updatedAt:ts,deviceId:DEVICE_ID
+  }).then(function(){_lastCloudTs=ts;setSyncStatus('ok');})
+  .catch(function(e){setSyncStatus('err','Nao salvo: '+e.message);});
 }
 
-// Override save to also trigger cloud sync
-var _origSave = null;
-function patchSave() {
-  _origSave = save;
-  save = function() {
-    try { localStorage.setItem('ciq_v6', JSON.stringify(STATE)); showSaveStatus('saved'); } catch(e) { showSaveStatus('error'); }
-    if (_saveTimer) clearTimeout(_saveTimer);
-    _saveTimer = setTimeout(saveToCloud, 1500);
+// Patch save() to also trigger cloud sync with debounce
+(function patchSave(){
+  var origSave=save;
+  save=function(){
+    try{localStorage.setItem('ciq_v6',JSON.stringify(STATE));showSaveStatus('saved');}catch(e){showSaveStatus('error');}
+    if(_saveTimer)clearTimeout(_saveTimer);
+    _saveTimer=setTimeout(saveToCloud,1500);
   };
-  manualSave = function() { save(); showSaveStatus('manual'); saveToCloud(); };
+  var origManual=manualSave;
+  manualSave=function(){save();showSaveStatus('manual');saveToCloud();};
+})();
+
+// Sync modal
+function openSyncModal(){
+  var cfg=null;try{cfg=JSON.parse(localStorage.getItem('ciq_firebase_cfg')||'null');}catch(e){}
+  var cfgStr=cfg?JSON.stringify(cfg,null,2):'{\n  "apiKey": "SUA_API_KEY_AQUI",\n  "authDomain": "SEU_PROJETO.firebaseapp.com",\n  "projectId": "SEU_PROJETO_ID",\n  "storageBucket": "SEU_PROJETO.appspot.com",\n  "messagingSenderId": "SEU_SENDER_ID",\n  "appId": "SEU_APP_ID"\n}';
+  var ov=document.createElement('div');ov.className='modal-ov';ov.id='sync-modal';
+  ov.innerHTML='<div class="modal-box"><h2>&#x2601; Sincronizacao entre dispositivos</h2>'
+    +'<div class="modal-desc">Configure o Firebase Firestore (gratuito) para sincronizar desktop e celular em tempo real. Siga o Guia de Instalacao para obter as credenciais.</div>'
+    +'<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Configuracao Firebase (JSON do console):</div>'
+    +'<textarea class="cfg-area" id="fb-cfg-area">'+cfgStr+'</textarea></div>'
+    +'<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:4px">Chave de sincronizacao:</div>'
+    +'<div style="display:flex;gap:7px"><input class="fi" id="sync-key-inp" value="'+(SYNC_KEY||'')+'" placeholder="Gerada automaticamente" style="flex:1"/>'
+    +'<button class="btn" onclick="document.getElementById(\'sync-key-inp\').value=\'ciq_\'+Math.random().toString(36).slice(2,10)">Nova</button></div>'
+    +'<div style="font-size:10px;color:var(--t3);margin-top:4px">Use a mesma chave nos dois dispositivos. Nao compartilhe.</div></div>'
+    +'<div style="display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="btn" onclick="document.getElementById(\'sync-modal\').remove()">Cancelar</button>'
+    +'<button class="btn btn-p" onclick="applySyncCfg()">Salvar e conectar</button></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.remove();});
 }
 
-// Sync Key modal
-function openSyncModal() {
-  var cfg = null;
-  try { cfg = JSON.parse(localStorage.getItem('ciq_firebase_cfg') || 'null'); } catch(e) {}
-  var cfgStr = cfg ? JSON.stringify(cfg, null, 2) : '{
-  "apiKey": "SUA_API_KEY_AQUI",
-  "authDomain": "SEU_PROJETO.firebaseapp.com",
-  "projectId": "SEU_PROJETO_ID",
-  "storageBucket": "SEU_PROJETO.appspot.com",
-  "messagingSenderId": "SEU_SENDER_ID",
-  "appId": "SEU_APP_ID"
-}';
-  var ov = document.createElement('div');
-  ov.className = 'modal-ov';
-  ov.id = 'sync-modal';
-  ov.innerHTML = '<div class="modal"><h2>&#x2601; Sincronizacao entre dispositivos</h2><div class="modal-desc">Configure o Firebase (gratuito) para manter desktop e celular em sincronia automatica em tempo real.</div>' +
-    '<div class="modal-lbl">Configuracao Firebase (cole o objeto do console)</div>' +
-    '<textarea class="config-area" id="fb-cfg-area">'+cfgStr+'</textarea>' +
-    '<div style="margin:10px 0"><div class="modal-lbl">Chave de sincronizacao</div><div style="display:flex;gap:7px">' +
-    '<input class="fi" id="sync-key-input" value="'+(SYNC_KEY||'')+'" placeholder="Gerada automaticamente apos salvar config" style="flex:1"/>' +
-    '<button class="btn btn-p" onclick="generateNewKey()">Nova chave</button></div>' +
-    '<div style="font-size:10px;color:var(--t3);margin-top:4px">Use a mesma chave nos dois dispositivos para sincronizar. Compartilhe a chave apenas com quem deve ter acesso.</div></div>' +
-    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
-    '<button class="btn" onclick="closeSyncModal()">Cancelar</button>' +
-    '<button class="btn btn-p" onclick="applySyncConfig()">Salvar e conectar</button></div></div>';
-  document.body.appendChild(ov);
-  ov.addEventListener('click', function(e){if(e.target===ov)closeSyncModal();});
-}
-function closeSyncModal(){var m=document.getElementById('sync-modal');if(m)m.remove();}
-function generateNewKey(){var inp=document.getElementById('sync-key-input');if(inp)inp.value='ciq_'+Math.random().toString(36).slice(2,10);}
-function applySyncConfig(){
+function applySyncCfg(){
   var cfgTxt=document.getElementById('fb-cfg-area').value.trim();
-  var keyVal=(document.getElementById('sync-key-input').value||'').trim();
+  var keyVal=(document.getElementById('sync-key-inp').value||'').trim();
   try{
     var cfg=JSON.parse(cfgTxt);
-    if(!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){alert('Preencha o apiKey com os dados reais do seu projeto Firebase.');return;}
+    if(!cfg.apiKey||cfg.apiKey==='SUA_API_KEY_AQUI'){alert('Preencha o apiKey com os dados reais do Firebase.');return;}
     localStorage.setItem('ciq_firebase_cfg',JSON.stringify(cfg));
     if(keyVal){SYNC_KEY=keyVal;localStorage.setItem('ciq_sync_key',keyVal);}
-    closeSyncModal();
-    initFirebase();
-    saveToCloud();
-    alert('Firebase configurado! Sincronizando dados...');
+    document.getElementById('sync-modal').remove();
+    // Reset firebase app if already initialized
+    try{firebase.app().delete().then(function(){_db=null;initFirebase();saveToCloud();});}
+    catch(e){initFirebase();saveToCloud();}
+    alert('Firebase configurado! Sincronizando...');
   }catch(e){alert('JSON invalido: '+e.message);}
 }
 
-// PWA install prompt
-var _installPrompt = null;
-window.addEventListener('beforeinstallprompt', function(e) {
-  e.preventDefault(); _installPrompt = e;
-  var btn = document.getElementById('install-btn');
-  if (btn) btn.style.display = 'inline-flex';
+// PWA install
+var _installPrompt=null;
+window.addEventListener('beforeinstallprompt',function(e){
+  e.preventDefault();_installPrompt=e;
+  var btn=document.getElementById('install-btn');if(btn)btn.style.display='inline-flex';
 });
-function installPWA() {
-  if (!_installPrompt) return;
+function installPWA(){
+  if(!_installPrompt)return;
   _installPrompt.prompt();
-  _installPrompt.userChoice.then(function(r) {
-    if (r.outcome==='accepted') { var btn=document.getElementById('install-btn'); if(btn)btn.style.display='none'; }
-    _installPrompt = null;
+  _installPrompt.userChoice.then(function(r){
+    if(r.outcome==='accepted'){var btn=document.getElementById('install-btn');if(btn)btn.style.display='none';}
+    _installPrompt=null;
   });
 }
 
 // Service Worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('./sw.js').then(function(reg) {
-      console.log('SW registrado:', reg.scope);
-    }).catch(function(e) { console.warn('SW falhou:', e); });
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(r){console.log('SW ok:',r.scope);})
+      .catch(function(e){console.warn('SW err:',e);});
   });
 }
 
-// Init on DOMContentLoaded (after main init)
-document.addEventListener('DOMContentLoaded', function() {
-  setTimeout(function() { patchSave(); initFirebase(); }, 800);
+// Init Firebase after app loads
+window.addEventListener('DOMContentLoaded',function(){
+  setTimeout(initFirebase,600);
 });
 </script>
 </body>
