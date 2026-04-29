@@ -822,7 +822,8 @@ function toggleTheme(){var d=document.documentElement;if(d.hasAttribute('data-da
 // FIREBASE SYNC + PWA INSTALL
 // ============================================================
 var _db=null,_unsub=null,_saveTimer=null,_lastCloudTs=0,_connected=false;
-var SYNC_KEY=localStorage.getItem('ciq_sync_key')||'ciq_consorcioiq1';
+var SYNC_KEY='ciq_consorcioiq1';
+localStorage.setItem('ciq_sync_key',SYNC_KEY);
 var DEVICE_ID=(function(){var id=sessionStorage.getItem('ciq_dev');if(!id){id='d'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);sessionStorage.setItem('ciq_dev',id);}return id;})();
 var _lastErrMsg='';
 
